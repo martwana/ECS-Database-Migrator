@@ -50,14 +50,14 @@ class Migrator {
 
         try {
 
-        $this->executeMigrations($migrations);
+            $this->executeMigrations($migrations);
 
-        $this->updateDatabaseVersion($this->newMigrationVersion, $currentDatabaseVersion);
+            $this->updateDatabaseVersion($this->newMigrationVersion, $currentDatabaseVersion);
 
         } catch (\Exception $e) {
-        echo "Rolling back changes" . PHP_EOL;
-        $this->db->rollback(); // Roll back the transaction
-        throw $e;
+            echo "Rolling back changes" . PHP_EOL;
+            $this->db->rollback(); // Roll back the transaction
+            throw $e;
         }
 
         $this->db->commit();
