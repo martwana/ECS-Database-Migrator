@@ -3,8 +3,5 @@
         "psr-0": {
             "ECS\\": ["src"]
         }
-    },
-    "require": {
-    	"vlucas/spot2": "~2.0"
     }
 }
