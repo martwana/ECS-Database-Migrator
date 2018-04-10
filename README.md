@@ -13,16 +13,21 @@ In the event of ANY error with ANY migration statement, all previously run migra
 
 
 ## Installation
-Clone this repository to your local environment:
-`git clone git@github.com:martwana/ECS-Database-Migrator.git`
 
-## Install dependencies
+### Clone
+Clone this repository to your local environment:
+
+```sh
+$ git clone git@github.com:martwana/ECS-Database-Migrator.git
+```
+
+### Install
 ```sh
 $ bin/composer.phar install
 ```
 Note: There isnt actually any dependencies for this tool, but you do need to generate the autoload files.
 
-## Running the migrator
+### Run
 The migrator requires **5** arguments to be passed to it. 
 
 ```sh
