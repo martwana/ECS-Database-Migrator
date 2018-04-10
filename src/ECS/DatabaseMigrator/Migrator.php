@@ -6,9 +6,9 @@ use \PDO;
 
 class Migrator {
 
-    private $NUM_ARGUMENTS_REQUIRED = 5; // This is the required number of arguments for the script to execute
+    public $NUM_ARGUMENTS_REQUIRED = 5; // This is the required number of arguments for the script to execute
 
-    private $ARGUMENT_NAMES = [ // The list of arguments, in the order that they should be passed into the script.
+    public $ARGUMENT_NAMES = [ // The list of arguments, in the order that they should be passed into the script.
         "migrationsDirectory",
         "databaseUsername",
         "databaseHost",
@@ -16,9 +16,9 @@ class Migrator {
         "databasePassword"
     ];
 
-    private $versionTable = "versionTable"; // The name of the table in the database that holds the current schema version
-    private $versionTableColumn = "version"; // The name of the column to query for the version
-    private $newMigrationVersion = 0; // This is where we will store the new latest version so we can update the table after we run the migrations
+    public $versionTable = "versionTable"; // The name of the table in the database that holds the current schema version
+    public $versionTableColumn = "version"; // The name of the column to query for the version
+    public $newMigrationVersion = 0; // This is where we will store the new latest version so we can update the table after we run the migrations
 
     /**
      * The entrypoint for the migrator. 
@@ -33,7 +33,7 @@ class Migrator {
     }
 
 
-    private function migrate()
+    public function migrate()
     {
         $currentDatabaseVersion = $this->getDatabaseVersion();
 
@@ -69,22 +69,22 @@ class Migrator {
     /**
      * Collect all the CLI parameters passed to the script and place them in properties on this object
      */
-        private function collectArguments()
-        {
-            if ($_SERVER['argc'] < ($this->NUM_ARGUMENTS_REQUIRED + 1)) { // + 1 used because the script name is always the first argument
-                throw new Exception("Wrong number of arguments passed", 1);
-            }
-
-            foreach ($this->ARGUMENT_NAMES as $position => $argumentName) {
-                $position++; // remember the first argument is the script name, so adjust the key by 1
-                $this->$argumentName = $_SERVER['argv'][$position];
-            }
+    public function collectArguments()
+    {
+        if ($_SERVER['argc'] < ($this->NUM_ARGUMENTS_REQUIRED + 1)) { // + 1 used because the script name is always the first argument
+            throw new \InvalidArgumentException("Wrong number of arguments passed", 1);
         }
+
+        foreach ($this->ARGUMENT_NAMES as $position => $argumentName) {
+            $position++; // remember the first argument is the script name, so adjust the key by 1
+            $this->$argumentName = $_SERVER['argv'][$position];
+        }
+    }
 
     /**
      * Initilise the database connection from the arguments passed to the script
      */
-    private function initDatabaseConnection()
+    public function initDatabaseConnection()
     {
         $dsn = "mysql:host=" . $this->databaseHost . ";" . "dbname=" . $this->databaseName . ";";
 
@@ -98,7 +98,7 @@ class Migrator {
     /**
      * Check the $versionTable for the current migration version
      */
-    private function getDatabaseVersion()
+    public function getDatabaseVersion()
     {
         // build the query to check get the version. order by version descending and limiting for 1 to prevent accidental extra rows from causing any issues
         $query = "SELECT `{$this->versionTableColumn}` FROM `{$this->versionTable}` ORDER BY `{$this->versionTableColumn}` DESC LIMIT 1";
@@ -128,7 +128,7 @@ class Migrator {
     /**
      * Get the migrations from the given directory that have a version number greater than the current database version
      */
-    private function getMigrationsForVersion($currentDatabaseVersion)
+    public function getMigrationsForVersion($currentDatabaseVersion)
     {
         $migrationsDirectory = rtrim($this->migrationsDirectory, '/') . '/'; // ensure that the directory will always have a trailing slash (by always removing one if its there and always adding one)
 
@@ -171,7 +171,7 @@ class Migrator {
     /**
      * Returns the version number taken from the given filename or false if it could not be found
      */
-    private function getVersionNumberFromFileName($filename)
+    public function getVersionNumberFromFileName($filename)
     {
         $filename = ltrim($filename, $this->migrationsDirectory); // remove the path to the file for this check - numbers in directories would match the regex below
 
@@ -188,7 +188,7 @@ class Migrator {
         return $versionNumber;
     }
 
-    private function executeMigrations($migrations) 
+    public function executeMigrations($migrations) 
     {
 
         foreach ($migrations as $migrationFilePath) {
@@ -223,7 +223,7 @@ class Migrator {
 
     }
 
-    private function updateDatabaseVersion($newMigrationVersion, $currentDatabaseVersion)
+    public function updateDatabaseVersion($newMigrationVersion, $currentDatabaseVersion)
     {
 
         echo "Setting new migration version to: " . $newMigrationVersion . PHP_EOL;

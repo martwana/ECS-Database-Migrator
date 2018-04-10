@@ -25,13 +25,19 @@ $ git clone git@github.com:martwana/ECS-Database-Migrator.git
 ```sh
 $ bin/composer.phar install
 ```
-Note: There isnt actually any dependencies for this tool, but you do need to generate the autoload files.
 
 ### Run
 The migrator requires **5** arguments to be passed to it. 
 
 ```sh
 $ php bin/index.php [MIGRATIONS_DIR] [DATABASE_USERNAME] [DATABASE_HOST] [DATABASE_NAME] [DATABASE_PASSWORD]
+```
+
+### Test
+The migrator has some basic unit tests covering some parts of the codebase.
+
+```sh
+$ vendor/bin/phpunit
 ```
 
 ##### Arguments, explained
