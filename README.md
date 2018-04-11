@@ -52,4 +52,4 @@ $ vendor/bin/phpunit
 
 `DATABASE_PASSWORD` - The password used to authenticate with the database
 
-The order of the arguments can be customised at any point by modifying the `ARGUMENT_NAMES` array in `src/ECS/DatabaseMigrator/Migrator.php`
+The order of the arguments can be customised at any point by modifying the `ARGUMENT_NAMES` array in `bin/index.php`
