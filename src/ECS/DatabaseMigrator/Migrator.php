@@ -2,39 +2,25 @@
 
 namespace ECS\DatabaseMigrator;
 
-use \PDO;
+use PDO;
+use Exception;
 
 class Migrator {
 
-    public $NUM_ARGUMENTS_REQUIRED = 5; // This is the required number of arguments for the script to execute
-
-    public $ARGUMENT_NAMES = [ // The list of arguments, in the order that they should be passed into the script.
-        "migrationsDirectory",
-        "databaseUsername",
-        "databaseHost",
-        "databaseName",
-        "databasePassword"
-    ];
-
+    
     public $versionTable = "versionTable"; // The name of the table in the database that holds the current schema version
     public $versionTableColumn = "version"; // The name of the column to query for the version
     public $newMigrationVersion = 0; // This is where we will store the new latest version so we can update the table after we run the migrations
 
-    /**
-     * The entrypoint for the migrator. 
-     */
-    public function init() 
+    public function __construct(PDO $db, $fileList) 
     {
-        $this->collectArguments(); // get the arguments
+        $this->db = $db; // we pass the database connection in directly, this allows us to test efficiently
 
-        $this->initDatabaseConnection(); // init the connection to the db
-
-        return $this->migrate(); // run the migration logic
+        $this->fileList = $fileList; // an array of migration file paths
     }
 
-
     public function migrate()
-    {
+    {   
         $currentDatabaseVersion = $this->getDatabaseVersion();
 
         $migrations = $this->getMigrationsForVersion($currentDatabaseVersion);
@@ -54,7 +40,7 @@ class Migrator {
 
             $this->updateDatabaseVersion($this->newMigrationVersion, $currentDatabaseVersion);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             echo "Rolling back changes" . PHP_EOL;
             $this->db->rollback(); // Roll back the transaction
             throw $e;
@@ -64,35 +50,6 @@ class Migrator {
         echo "Database Migrated" . PHP_EOL;
 
         return true; // nothing threw an exception before now, we're good to return a true status
-    }
-
-    /**
-     * Collect all the CLI parameters passed to the script and place them in properties on this object
-     */
-    public function collectArguments()
-    {
-        if ($_SERVER['argc'] < ($this->NUM_ARGUMENTS_REQUIRED + 1)) { // + 1 used because the script name is always the first argument
-            throw new \InvalidArgumentException("Wrong number of arguments passed", 1);
-        }
-
-        foreach ($this->ARGUMENT_NAMES as $position => $argumentName) {
-            $position++; // remember the first argument is the script name, so adjust the key by 1
-            $this->$argumentName = $_SERVER['argv'][$position];
-        }
-    }
-
-    /**
-     * Initilise the database connection from the arguments passed to the script
-     */
-    public function initDatabaseConnection()
-    {
-        $dsn = "mysql:host=" . $this->databaseHost . ";" . "dbname=" . $this->databaseName . ";";
-
-        try {
-            $this->db = new PDO($dsn, $this->databaseUsername, $this->databasePassword);
-        } catch (\Exception $e) {
-            throw $e; // later, you would maybe catch specific errors and handle them differently
-        }
     }
 
     /**
@@ -109,7 +66,7 @@ class Migrator {
             $result->execute(); // execute the query
 
             if (!$result) { // PDO doesnt throw execeptions when queries fail, it only returns false so do a check
-                throw new \Exception("Unable to execute version check query", 2);
+                throw new Exception("Unable to execute version check query", 2);
             }
 
             $row = $result->fetch(); // get the first row from the query result
@@ -120,8 +77,8 @@ class Migrator {
             echo "Current Database Version: " . $version . PHP_EOL;
             return $version;
 
-        } catch (\Exception $e) {
-            throw $e; // again, should expand this to handle different kind of errors
+        } catch (Exception $e) {
+            throw $e; // TODO expand this to handle different kind of errors
         }
     }
 
@@ -130,24 +87,18 @@ class Migrator {
      */
     public function getMigrationsForVersion($currentDatabaseVersion)
     {
-        $migrationsDirectory = rtrim($this->migrationsDirectory, '/') . '/'; // ensure that the directory will always have a trailing slash (by always removing one if its there and always adding one)
-
-        $migrationsDirectory .= "*.sql"; // we're only interested in .sql files in the migrationsDirectory
-
-        $files = glob($migrationsDirectory); // get a list of the filenames
-
         $validMigrations = []; // to store the migrations we are ok to apply
 
-        foreach ($files as $filename) {
+        foreach ($this->fileList as $filename) {
 
             $migrationVersion = $this->getVersionNumberFromFileName($filename);
 
             if (!$migrationVersion) { // if theres an issue getting the migration, then stop. Do not miss any migrations when updating the database
-                throw new \Exception("Unable to determine version number of migration file {$filename}. Halting!", 3);
+                throw new Exception("Unable to determine version number of migration file {$filename}. Halting!", 3);
             }
 
             if (array_key_exists($migrationVersion, $validMigrations)) { // if theres more than one file with the same number we cannot understand the order to execute them, so stop
-                throw new \Exception("A duplicate migration file version has been found. Halting!", 4); 
+                throw new Exception("A duplicate migration file version has been found. Halting!", 4); 
             }
      
             if ($migrationVersion > $currentDatabaseVersion) {
@@ -173,21 +124,26 @@ class Migrator {
      */
     public function getVersionNumberFromFileName($filename)
     {
-        $filename = ltrim($filename, $this->migrationsDirectory); // remove the path to the file for this check - numbers in directories would match the regex below
+
+        $filenameParts = explode('/', $filename); // remove the path to the file for this check - numbers in directories would match the regex below
+        $filename = end($filenameParts);
 
         $pattern = "/.*?(\d+)/"; // will grab all numbers from the filename
 
-        $hasValidVersionNumber = preg_match($pattern, $filename, $matches);
+        $hasValidVersionNumber = preg_match_all($pattern, $filename, $matches);
 
-        if ($hasValidVersionNumber !== 1) { // if the regex failed, then this filename isnt compatible
+        if (empty($matches[1])) { // if the regex failed, then this filename isnt compatible
             return false;
-        }
+        }   
 
-        $versionNumber = (int) $matches[0]; // cast the version to an int to make matching easier
+        $versionNumber = implode('', $matches[1]); // cast the version to an int to make matching easier
 
-        return $versionNumber;
+        return (int) $versionNumber;
     }
 
+    /**
+     * Loop through each migration and attempt to execute them
+     */
     public function executeMigrations($migrations) 
     {
 
@@ -200,7 +156,7 @@ class Migrator {
                 $statement = $this->db->query($sql); // run the sql
 
                 if (!$statement) {
-                    throw new \Exception("Failed to prepare migration: " . $migrationFilePath . PHP_EOL, 5);
+                    throw new Exception("Failed to prepare migration: " . $migrationFilePath . PHP_EOL, 5);
                 }
 
                 $result = $statement->execute();
@@ -208,21 +164,24 @@ class Migrator {
 
                 if (!$result) {
                     print_r($this->db->errorInfo());
-                    throw new \Exception("Failed to execute SQL" . $this->db->errorCode(), 6);
+                    throw new Exception("Failed to execute SQL" . $this->db->errorCode(), 6);
                 }
 
                 echo "SUCCESS Migration: " . $migrationFilePath . PHP_EOL;
 
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 throw $e; // like the rest
             }
 
         }
 
         echo "Migration Execution Completed" . PHP_EOL;
-
+        return true;
     }
 
+    /**
+     * Update the database version number 
+     */
     public function updateDatabaseVersion($newMigrationVersion, $currentDatabaseVersion)
     {
 
@@ -233,17 +192,17 @@ class Migrator {
         $updateStatement = $this->db->query($updateQuery);
 
         if (!$updateStatement) {
-            throw new \Exception("Error while creating update statement" . PHP_EOL, 5);
+            throw new Exception("Error while creating update statement" . PHP_EOL, 5);
         }
 
         $result = $updateStatement->execute();
 
         if (!$result) {
             print_r($this->db->errorInfo());
-            throw new \Exception("Failed to execute update statement" . $this->db->errorCode(), 7);
+            throw new Exception("Failed to execute update statement" . $this->db->errorCode(), 7);
         }
 
-        return result;
+        return $result;
 
     }
 
